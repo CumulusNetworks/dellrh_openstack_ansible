@@ -1,0 +1,25 @@
+#ANSIBLE GENERATED -- DO NOT EDIT
+
+hostname bgpd
+log timestamp precision 6
+log file /var/log/quagga/bgpd.log
+
+route-map LOOPBACK_RT permit 10
+ match interface lo
+
+router bgp {{ asn }}
+ bgp log-neighbor-changes
+ bgp default show-hostname
+ bgp bestpath as-path multipath-relax no-as-set
+ maximum-paths 64
+ redistribute connected route-map LOOPBACK_RT
+
+ {% for interface in ansible_interfaces %}
+ {% if interface.startswith('swp') %}
+ neighbor {{ interface }} interface v6only
+ neighbor {{ interface }} remote-as external
+ neighbor {{ interface }} capability extended-nexthop
+ neighbor {{ interface }} advertisement-interval 0
+ {% endif %}
+ {% endfor %}
+

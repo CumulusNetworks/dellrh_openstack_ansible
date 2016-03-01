@@ -1,0 +1,20 @@
+#ANSIBLE GENERATED -- DO NOT EDIT
+
+hostname zebra
+log file /var/log/quagga/zebra.log
+
+route-map SETSRC permit 10
+  set src {{ data_ip }}
+
+ip protocol bgp route-map SETSRC
+
+{% for interface in ansible_interfaces %}
+{% if interface.startswith('swp') %}
+interface {{ interface }}
+ ipv6 nd ra-interval 5
+ link-detect
+ no ipv6 nd suppress-ra
+!
+{% endif %}
+{% endfor %}
+

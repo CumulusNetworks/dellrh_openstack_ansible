@@ -1,0 +1,9 @@
+#ANSIBLE GENERATED -- DO NOT EDIT
+zebra=yes
+bgpd=yes
+ospfd=no
+ospf6d=no
+ripd=no
+ripngd=no
+isisd=no
+babeld=no

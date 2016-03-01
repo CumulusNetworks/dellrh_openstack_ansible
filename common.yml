@@ -1,0 +1,61 @@
+- hosts: all
+  vars:
+   #This one is dirty.
+   - data_ip: "{{ ansible_default_ipv4.address | regex_replace('^(\\d+)[.](\\d+)[.](\\d+)[.](\\d+)', '10.20.\\\\3.\\\\4') }}"
+   #This one is absolutely filthy.
+   - asn: "{{ ansible_hostname | regex_replace('^leaf-', '650') | regex_replace('^spine-0', '6509') }}"
+
+  tasks:
+   - name: copy license to switch
+     copy: src=files/license.txt dest=/tmp/license.txt
+   - name: install license
+     cl_license: src='/tmp/license.txt'
+     notify: restart switchd
+   - name: Triggers switchd to be restarted right away, before play, or role
+           is over. This is desired behaviour
+     meta: flush_handlers
+
+   - name: Set hostname
+     hostname: name={{ ansible_hostname }}
+
+   - name: Set root PW
+     user: name=root update_password=always password=$6$0p94iZ0Va$DUWl2tWIgXQNb20.j9Bht2LnyFPGQA/FxGP4oOIrViZ0IR4Jt7sjA6mh626HJ5eA0hh7Q3nOiOlKNF/FwofFG1
+
+   - name: Network config
+     template: src=templates/interfaces.j2 dest=/etc/network/interfaces owner=root group=root mode=0644
+     notify: reload networking
+   - name: Resolver
+     copy: src=files/resolv.conf dest=/etc/resolv.conf
+
+   - name: enable zebra/bgp
+     copy: src=files/daemons dest=/etc/quagga/daemons
+     notify: restart quagga
+   - name: Zebra config
+     template: src=templates/zebra.conf.j2 dest=/etc/quagga/zebra.conf
+     notify: restart quagga
+   - name: BGP config
+     template: src=templates/bgpd.conf.j2 dest=/etc/quagga/bgpd.conf
+     notify: restart quagga
+
+   - name: install packages
+     apt: name=bwm-ng update_cache=yes
+
+  handlers:
+   - name: restart switchd
+     service: name=switchd state=restarted
+
+   - name: restart quagga
+     service: name=quagga state=restarted
+
+   - name: reload networking
+     shell: "service networking reload"
+     register: networking_reload
+     notify:
+      - print networking reload error
+      - restart quagga
+     changed_when: "networking_reload.stderr != ''"
+   - name: print networking reload error
+     debug: msg="{{networking_reload.stderr}}"
+     when: networking_reload.stderr is defined
+     failed_when: "networking_reload.stderr is defined"
+
